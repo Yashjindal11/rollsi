@@ -1,8 +1,29 @@
-/* global document, Excel, HTMLButtonElement, HTMLInputElement, Office */
+/* global atob, Blob, ClipboardItem, document, Excel, HTMLButtonElement, HTMLElement, HTMLInputElement, HTMLSelectElement, navigator, Office */
 import { CATALOG } from "./catalog";
 import type { FunctionDoc } from "./catalog";
+import type { DiffMode } from "../core/viz";
+import {
+  addCagrArrow,
+  addDifferenceArrow,
+  addTotals,
+  refreshAnnotations,
+  removeAnnotations,
+} from "./lib/annotate";
+import {
+  buildActualVsTarget,
+  buildControl,
+  buildGantt,
+  buildPareto,
+  buildTrendMA,
+  buildWaterfall,
+} from "./lib/charts";
+import { createDemo, DEMO_SHEET } from "./lib/demo";
+import { EXPORT_SIZES, exportCharts } from "./lib/exporter";
+import { drawMekko, redrawMekko } from "./lib/mekko";
+import { currentPalette, loadPaletteChoice, PALETTES, savePaletteChoice } from "./lib/palette";
+import { applyStyle } from "./lib/style";
 
-const DEMO_SHEET = "ROLLSI Demo";
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 function escapeHtml(s: string): string {
   return s.replace(
@@ -11,8 +32,42 @@ function escapeHtml(s: string): string {
   );
 }
 
-function render(filter: string) {
-  const list = document.getElementById("list")!;
+function numberInput(id: string): number | null {
+  const v = $<HTMLInputElement>(id).value.trim();
+  return v === "" ? null : Number(v);
+}
+
+function setStatus(text: string, kind: "" | "ok" | "error" = "") {
+  const status = $("status");
+  status.className = kind;
+  status.textContent = text;
+}
+
+/** Runs an Excel action with a busy button and a friendly status line. */
+async function act(
+  button: HTMLButtonElement | null,
+  busy: string,
+  fn: (ctx: Excel.RequestContext) => Promise<string | void>
+) {
+  if (button) button.disabled = true;
+  setStatus(busy);
+  try {
+    const result: { message?: string } = {};
+    await Excel.run(async (ctx) => {
+      result.message = (await fn(ctx)) || undefined;
+    });
+    setStatus(result.message || "Done.", "ok");
+  } catch (e) {
+    setStatus(e instanceof Error ? e.message : String(e), "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+// ---------------------------------------------------------------- Functions tab
+
+function renderFunctions(filter: string) {
+  const list = $("list");
   const q = filter.trim().toLowerCase();
   const matches = (f: FunctionDoc) =>
     !q || [f.name, f.group, f.summary, f.syntax].some((s) => s.toLowerCase().includes(q));
@@ -35,122 +90,188 @@ function render(filter: string) {
     : "<p>No matching functions.</p>";
 }
 
-/** Deterministic pseudo-random numbers so the demo looks the same every time. */
-function rng(seed: number) {
-  return () => {
-    seed = (seed * 1664525 + 1013904223) % 4294967296;
-    return seed / 4294967296;
+// ---------------------------------------------------------------- Style tab
+
+function renderSwatches() {
+  $("swatches").innerHTML = currentPalette()
+    .map((c) => `<span style="background:${escapeHtml(c)}" title="${escapeHtml(c)}"></span>`)
+    .join("");
+}
+
+function initPalette() {
+  const select = $<HTMLSelectElement>("palette");
+  const custom = $<HTMLInputElement>("custom-palette");
+  select.innerHTML = [...Object.keys(PALETTES), "Custom"]
+    .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
+    .join("");
+  const choice = loadPaletteChoice();
+  select.value = choice.name;
+  custom.value = choice.custom.join(", ");
+  custom.style.display = choice.name === "Custom" ? "" : "none";
+  const save = async () => {
+    custom.style.display = select.value === "Custom" ? "" : "none";
+    await savePaletteChoice(select.value, custom.value);
+    renderSwatches();
   };
+  select.addEventListener("change", save);
+  custom.addEventListener("change", save);
+  renderSwatches();
 }
 
-function demoData(): [number, number][] {
-  const rand = rng(42);
-  const start = 46023; // 2026-01-01
-  const skipped = new Set([20, 21, 50, 77]); // missing days, to show ROLLDAYS vs SMA
-  const rows: [number, number][] = [];
-  for (let d = 0; d < 120; d++) {
-    if (skipped.has(d)) continue;
-    const weekly = [0.85, 1.0, 1.05, 1.1, 1.2, 1.35, 0.9][d % 7];
-    let sales = (1000 + d * 6) * weekly * (0.9 + rand() * 0.2);
-    if (d === 60) sales *= 2.6;
-    if (d === 95) sales *= 0.35;
-    rows.push([start + d, Math.round(sales)]);
+async function styleCharts(context: Excel.RequestContext, all: boolean): Promise<string> {
+  const labels = $<HTMLInputElement>("style-labels").checked;
+  let charts: Excel.Chart[];
+  if (all) {
+    const coll = context.workbook.worksheets.getActiveWorksheet().charts;
+    coll.load("items");
+    await context.sync();
+    charts = coll.items;
+  } else {
+    const chart = context.workbook.getActiveChartOrNullObject();
+    await context.sync();
+    if (chart.isNullObject) throw new Error("Click a chart first (or use 'All charts on sheet').");
+    charts = [chart];
   }
-  return rows;
+  for (const c of charts) await applyStyle(context, c, currentPalette(), { labels });
+  return `Styled ${charts.length} chart${charts.length === 1 ? "" : "s"}.`;
 }
 
-async function createDemo() {
-  const button = document.getElementById("demo") as HTMLButtonElement;
-  const status = document.getElementById("status")!;
-  button.disabled = true;
-  status.className = "";
-  status.textContent = "Building demo sheet...";
-  try {
-    await Excel.run(async (context) => {
-      const sheets = context.workbook.worksheets;
-      const existing = sheets.getItemOrNullObject(DEMO_SHEET);
-      await context.sync();
-      if (!existing.isNullObject) existing.delete();
-      const sheet = sheets.add(DEMO_SHEET);
+// ---------------------------------------------------------------- Export tab
 
-      const data = demoData();
-      const last = data.length + 1;
-      const B = `B2:B${last}`;
-      const A = `A2:A${last}`;
+function base64ToBlob(b64: string): Blob {
+  return new Blob([Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))], { type: "image/png" });
+}
 
-      const columns: [string, string, string][] = [
-        ["7-row avg (last point)", `=ROLLSI.MA(${B},7)`, "#,##0"],
-        ["7-row avg (mid point)", `=ROLLSI.MA(${B},7,1,1)`, "#,##0"],
-        ["7-row SUM (code 9)", `=ROLLSI.MA(${B},7,9)`, "#,##0"],
-        ["MAX of 3 above + 3 below", `=ROLLSI.MA(${B},,4,3,3,3)`, "#,##0"],
-        ["7-day avg/day (calendar)", `=ROLLSI.ROLLDAYS(${A},${B},7,"perday")`, "#,##0"],
-        ["WoW %", `=ROLLSI.PERIODCHANGE(${A},${B},"W")`, "0.0%"],
-        ["Anomaly score (14)", `=ROLLSI.ROLLZSCORE(${B},14)`, "0.00"],
-        ["Outlier?", `=ROLLSI.OUTLIERS(${B},"mad")`, "General"],
-      ];
-
-      sheet.getRange("A1:J1").values = [["Date", "Sales", ...columns.map((c) => c[0])]];
-      sheet.getRange(`A2:B${last}`).values = data;
-      sheet.getRange(A).numberFormat = data.map(() => ["yyyy-mm-dd"]);
-      sheet.getRange(B).numberFormat = data.map(() => ["#,##0"]);
-      columns.forEach(([, formula, format], i) => {
-        const col = String.fromCharCode(67 + i); // C, D, ...
-        sheet.getRange(`${col}2`).formulas = [[formula]];
-        sheet.getRange(`${col}2:${col}${last}`).numberFormat = data.map(() => [format]);
-      });
-
-      sheet.getRange("L1:M1").values = [["KPI", "Value"]];
-      sheet.getRange("L2:M6").formulas = [
-        ["Avg of last 7 points", `=ROLLSI.LAST(${B},7)`],
-        ["Sum of last 7 points", `=ROLLSI.LAST(${B},7,"sum")`],
-        ["Median of last 30 points", `=ROLLSI.LAST(${B},30,"median")`],
-        ["Volatility (stdev, last 30)", `=ROLLSI.LAST(${B},30,"stdev")`],
-        ["Daily growth trend (CAGR)", `=ROLLSI.CAGR(B2,B${last},${data.length - 1})`],
-      ];
-      sheet.getRange("M2:M5").numberFormat = [["#,##0"], ["#,##0"], ["#,##0"], ["#,##0"]];
-      sheet.getRange("M6").numberFormat = [["0.00%"]];
-      sheet.getRange("L8").values = [["Next 14 days (Holt forecast)"]];
-      sheet.getRange("L9").formulas = [[`=ROLLSI.FORECAST(${B},14)`]];
-      sheet.getRange("L9:L22").numberFormat = Array.from({ length: 14 }, () => ["#,##0"]);
-
-      const header = sheet.getRange("A1:J1");
-      header.format.font.bold = true;
-      header.format.fill.color = "#107C41";
-      header.format.font.color = "#FFFFFF";
-      header.format.wrapText = true;
-      const kpiHeader = sheet.getRange("L1:M1");
-      kpiHeader.format.font.bold = true;
-      kpiHeader.format.fill.color = "#107C41";
-      kpiHeader.format.font.color = "#FFFFFF";
-      sheet.getRange("L8").format.font.bold = true;
-      sheet.freezePanes.freezeRows(1);
-
-      const chart = sheet.charts.add(
-        Excel.ChartType.line,
-        sheet.getRange(`A1:D${last}`),
-        Excel.ChartSeriesBy.columns
+function renderGallery(images: { name: string; base64: string }[]) {
+  const gallery = $("gallery");
+  gallery.innerHTML = images
+    .map((img, i) => {
+      const file = `${img.name.replace(/[^\w-]+/g, "_")}.png`;
+      return (
+        `<figure><img src="data:image/png;base64,${img.base64}" alt="${escapeHtml(img.name)}" draggable="true" />` +
+        `<figcaption><span>${escapeHtml(img.name)}</span>` +
+        `<a href="data:image/png;base64,${img.base64}" download="${escapeHtml(file)}">Download</a>` +
+        `<button class="secondary" data-copy="${i}">Copy</button></figcaption></figure>`
       );
-      chart.title.text = "Daily sales: trailing vs centered 7-row moving average";
-      chart.legend.position = Excel.ChartLegendPosition.bottom;
-      chart.setPosition("O2", "X22");
-
-      sheet.getRange("A:M").format.autofitColumns();
-      sheet.activate();
-      await context.sync();
-    });
-    status.textContent = `Done. See the "${DEMO_SHEET}" sheet.`;
-  } catch (e) {
-    status.className = "error";
-    status.textContent = `Could not create the demo: ${e instanceof Error ? e.message : String(e)}`;
-  } finally {
-    button.disabled = false;
-  }
+    })
+    .join("");
+  gallery.querySelectorAll<HTMLButtonElement>("button[data-copy]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      try {
+        const blob = base64ToBlob(images[Number(btn.dataset.copy)].base64);
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setStatus("Copied. Paste into PowerPoint with Ctrl/Cmd+V.", "ok");
+      } catch {
+        setStatus(
+          "Copy is blocked here. Right-click the image and copy, or drag it into PowerPoint.",
+          "error"
+        );
+      }
+    })
+  );
 }
+
+// ---------------------------------------------------------------- Wiring
+
+const ACTIONS: Record<string, (ctx: Excel.RequestContext) => Promise<string | void>> = {
+  trend: async (ctx) => {
+    await buildTrendMA(ctx, numberInput("ma-window") ?? 7);
+    return "Trend chart added. Its formulas live on the ROLLSI Data sheet.";
+  },
+  control: async (ctx) => {
+    await buildControl(ctx, numberInput("ctl-window"), numberInput("ctl-k") ?? 3);
+    return "Control chart added.";
+  },
+  waterfall: async (ctx) => {
+    await buildWaterfall(
+      ctx,
+      $<HTMLInputElement>("wf-start").checked,
+      $<HTMLInputElement>("wf-total").checked
+    );
+    return "Waterfall added. Re-insert to refresh the step labels after data changes.";
+  },
+  avt: async (ctx) => {
+    await buildActualVsTarget(ctx);
+    return "Actual vs target and variance charts added.";
+  },
+  pareto: async (ctx) => {
+    await buildPareto(ctx);
+    return "Pareto chart added.";
+  },
+  gantt: async (ctx) => {
+    await buildGantt(ctx);
+    return "Timeline added.";
+  },
+  mekko: async (ctx) => {
+    await drawMekko(ctx);
+    return "Mekko added. Click Annotate → Refresh all after changing the data.";
+  },
+  diff: async (ctx) => {
+    await addDifferenceArrow(
+      ctx,
+      numberInput("diff-from") ?? 1,
+      numberInput("diff-to") ?? 2,
+      $<HTMLSelectElement>("diff-mode").value as DiffMode
+    );
+    return "Difference arrow added.";
+  },
+  cagr: async (ctx) => {
+    await addCagrArrow(ctx, numberInput("cagr-from"), numberInput("cagr-to"));
+    return "CAGR arrow added.";
+  },
+  totals: async (ctx) => {
+    await addTotals(ctx);
+    return "Totals added.";
+  },
+  refresh: async (ctx) => {
+    const n = await refreshAnnotations(ctx, (source, left, top) =>
+      redrawMekko(ctx, source, left, top)
+    );
+    return `Refreshed ${n} annotation${n === 1 ? "" : "s"}.`;
+  },
+  remove: async (ctx) => {
+    const n = await removeAnnotations(ctx);
+    return `Removed ${n} annotation${n === 1 ? "" : "s"}.`;
+  },
+  "style-one": (ctx) => styleCharts(ctx, false),
+  "style-all": (ctx) => styleCharts(ctx, true),
+  export: async (ctx) => {
+    const scope = $<HTMLSelectElement>("export-scope").value as "selected" | "sheet";
+    const size = EXPORT_SIZES[Number($<HTMLSelectElement>("export-size").value)];
+    const images = await exportCharts(ctx, scope, size);
+    renderGallery(images);
+    return `${images.length} image${images.length === 1 ? "" : "s"} ready below.`;
+  },
+};
 
 Office.onReady(() => {
-  render("");
+  document.querySelectorAll<HTMLButtonElement>(".tabs button").forEach((tab) =>
+    tab.addEventListener("click", () => {
+      document
+        .querySelectorAll(".tabs button, .tab")
+        .forEach((el) => el.classList.remove("active"));
+      tab.classList.add("active");
+      $(`tab-${tab.dataset.tab}`).classList.add("active");
+      setStatus("");
+    })
+  );
   document
-    .getElementById("search")!
-    .addEventListener("input", (e) => render((e.target as HTMLInputElement).value));
-  document.getElementById("demo")!.addEventListener("click", createDemo);
+    .querySelectorAll<HTMLButtonElement>("button[data-action]")
+    .forEach((btn) =>
+      btn.addEventListener("click", () => act(btn, "Working…", ACTIONS[btn.dataset.action!]))
+    );
+  $<HTMLSelectElement>("export-size").innerHTML = EXPORT_SIZES.map(
+    (s, i) => `<option value="${i}">${escapeHtml(s.label)}</option>`
+  ).join("");
+  $("demo").addEventListener("click", (e) =>
+    act(e.currentTarget as HTMLButtonElement, "Building demo sheet…", async (ctx) => {
+      await createDemo(ctx);
+      return `Done. See the "${DEMO_SHEET}" sheet.`;
+    })
+  );
+  $("search").addEventListener("input", (e) =>
+    renderFunctions((e.target as HTMLInputElement).value)
+  );
+  renderFunctions("");
+  initPalette();
 });

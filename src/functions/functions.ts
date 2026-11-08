@@ -441,3 +441,167 @@ export function forecast(
     core.forecast(v, horizon, core.parseForecastMethod(method), alpha ?? 0.3, beta ?? 0.1)
   );
 }
+
+// ---------------------------------------------------------------- In-cell charts
+
+/**
+ * In-cell sparkline made of block characters, e.g. ▁▂▄▆█.
+ * @customfunction SPARK
+ * @param values Column (or row) of numbers.
+ * @param [type] bars (default) or winloss (▀ up, ▄ down).
+ * @param [min] Optional fixed minimum, so several sparklines share one scale.
+ * @param [max] Optional fixed maximum.
+ * @returns The sparkline text.
+ */
+export function spark(values: any[][], type?: string, min?: number, max?: number): string {
+  return run(() =>
+    core.sparkline(
+      core.toSeries(values).values,
+      core.parseSparkType(type),
+      min ?? null,
+      max ?? null
+    )
+  );
+}
+
+/**
+ * In-cell horizontal bar, e.g. █████▌, scaled so that max fills the bar.
+ * @customfunction BAR
+ * @param value The value to draw.
+ * @param max The value that fills the whole bar (e.g. MAX of the column).
+ * @param [width] Bar width in characters. Default 10.
+ * @returns The bar text.
+ */
+export function bar(value: number, max: number, width?: number): string {
+  return run(() => core.textBar(value, max, width ?? 10));
+}
+
+/**
+ * Up/down arrow with the change, e.g. ▲ +12.3% or ▼ -4.0%.
+ * @customfunction ARROW
+ * @param change The change (a decimal like 0.123 for 12.3%, or an absolute number with format "num").
+ * @param [threshold] Changes within ±threshold show ► (flat). Default 0.
+ * @param [format] pct (default), num (1.2K style) or arrow (symbol only).
+ * @param [decimals] Decimal places. Default 1.
+ * @returns Arrow text.
+ */
+export function arrow(
+  change: number,
+  threshold?: number,
+  format?: string,
+  decimals?: number
+): string {
+  return run(() =>
+    core.arrow(change, threshold ?? 0, core.parseArrowFormat(format), decimals ?? 1)
+  );
+}
+
+/**
+ * Short number text: 1234 -> 1.2K, 5600000 -> 5.6M, 2500000000 -> 2.5B.
+ * @customfunction SHORT
+ * @param value The number.
+ * @param [decimals] Maximum decimal places. Default 1.
+ * @returns Short number text.
+ */
+export function short(value: number, decimals?: number): string {
+  return run(() => core.shortNumber(value, decimals ?? 1));
+}
+
+// ---------------------------------------------------------------- Chart helpers
+
+function na(): any {
+  return new CustomFunctions.Error(CustomFunctions.ErrorCode.notAvailable);
+}
+
+function columnsToRange(columns: (unknown | null)[][]): any[][] {
+  const rows = columns.length ? columns[0].length : 0;
+  if (rows === 0) return [[na()]];
+  return Array.from({ length: rows }, (_, i) =>
+    columns.map((col) => (col[i] === null ? na() : col[i]))
+  );
+}
+
+/**
+ * Replaces blank cells with #N/A so charts leave a gap instead of plotting zero. Wrap any spill, e.g. =ROLLSI.NA(ROLLSI.MA(B2:B100,7)).
+ * @customfunction NA
+ * @param values Any range or spilled array.
+ * @returns The same values with blanks turned into #N/A.
+ */
+export function chartNa(values: any[][]): any[][] {
+  return values.map((row) =>
+    row.map((v) => (v === "" || v === null || v === undefined ? na() : v))
+  );
+}
+
+/**
+ * Control-chart lines: Center, Upper, Lower and Outlier (outliers keep their value, others are #N/A). Spills 4 columns.
+ * @customfunction CONTROL
+ * @param values Column of numbers.
+ * @param [window] Rows used for rolling limits (previous N rows). Blank = whole series.
+ * @param [k] Number of standard deviations. Default 3.
+ * @returns Center, Upper, Lower, Outlier columns.
+ */
+export function control(values: any[][], window?: number, k?: number): any[][] {
+  return run(() => {
+    const c = core.controlLimits(core.toSeries(values).values, window ?? null, k ?? 3);
+    return columnsToRange([c.center, c.upper, c.lower, c.outlier]);
+  });
+}
+
+/**
+ * Pareto table sorted descending: Label, Value, Cumulative %, 80% line. Spills 4 columns.
+ * @customfunction PARETO
+ * @param labels Column of category labels.
+ * @param values Column of values (same size).
+ * @returns Label, Value, Cumulative share, 0.8 reference line.
+ */
+export function paretoTable(labels: any[][], values: any[][]): any[][] {
+  return run(() => {
+    const l = labels.map((r) => r[0]);
+    const rows = core.pareto(l, core.toSeries(values).values);
+    if (rows.length === 0) return [[na(), na(), na(), na()]];
+    return rows.map((r) => [r.label, r.value, r.cumulative, 0.8]);
+  });
+}
+
+/**
+ * Stacked-column series for a waterfall / bridge chart (8 columns: hidden bases, Increase, Decrease, Total). Rows labelled "total"/"subtotal" show the running total.
+ * @customfunction WATERFALL
+ * @param labels Column of step labels.
+ * @param values Column of changes (the first row is the starting value).
+ * @param [firstIsStart] TRUE (default): the first row is a starting level, not a change.
+ * @param [lastIsTotal] TRUE (default): the last row shows the computed end total.
+ * @returns 8 stacked series values per row.
+ */
+export function waterfallTable(
+  labels: any[][],
+  values: any[][],
+  firstIsStart?: boolean,
+  lastIsTotal?: boolean
+): any[][] {
+  return run(() => {
+    const steps = core.waterfall(
+      labels.map((r) => r[0]),
+      core.toSeries(values).values,
+      firstIsStart ?? true,
+      lastIsTotal ?? true
+    );
+    return steps.length ? core.waterfallMatrix(steps) : [[na()]];
+  });
+}
+
+/**
+ * Actual vs target table: Actual, Target, Over (actual - target when >= 0) and Under (when < 0). Spills 4 columns.
+ * @customfunction VSTARGET
+ * @param actual Column of actual values.
+ * @param target Column of target values (same size).
+ * @returns Actual, Target, Over, Under columns.
+ */
+export function vsTarget(actual: any[][], target: any[][]): any[][] {
+  return run(() => {
+    const a = core.toSeries(actual).values;
+    const t = core.toSeries(target).values;
+    const { over, under } = core.varianceSplit(a, t);
+    return columnsToRange([a, t, over, under]);
+  });
+}

@@ -12,44 +12,179 @@
       <div class="brand">
         <img src="../../assets/icon-32.png" alt="" width="24" height="24" />
         <h1>ROLLSI</h1>
+        <button id="demo" class="ghost">Demo sheet</button>
       </div>
-      <p class="tagline">Moving averages, rolling stats, growth &amp; forecasting for Excel.</p>
+      <p class="tagline">Analyst charts, think-cell-style annotations and rolling-stat functions for Excel.</p>
     </header>
 
-    <section class="actions">
-      <button id="demo" class="primary">Create demo sheet</button>
-      <p id="status" role="status"></p>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="charts" class="active">Charts</button>
+      <button role="tab" data-tab="annotate">Annotate</button>
+      <button role="tab" data-tab="style">Style</button>
+      <button role="tab" data-tab="export">Export</button>
+      <button role="tab" data-tab="functions">Functions</button>
+    </nav>
+    <p id="status" role="status"></p>
+
+    <!-- CHARTS -->
+    <section id="tab-charts" class="tab active">
+      <p class="hint">Select your data (header row + columns) and click a chart. Charts stay live: they read formulas on the <b>ROLLSI Data</b> sheet.</p>
+
+      <div class="card">
+        <div class="card-head"><b>Trend + moving average</b><span class="shape">[dates] values</span></div>
+        <div class="row">
+          <label>Window <input id="ma-window" type="number" min="2" value="7" /></label>
+          <button class="primary" data-action="trend">Insert</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Control chart</b><span class="shape">[dates] values</span></div>
+        <div class="row">
+          <label>±σ <input id="ctl-k" type="number" min="0.5" step="0.5" value="3" /></label>
+          <label>Rolling <input id="ctl-window" type="number" min="2" placeholder="all" /></label>
+          <button class="primary" data-action="control">Insert</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Waterfall / bridge</b><span class="shape">labels, changes</span></div>
+        <div class="row">
+          <label class="check"><input id="wf-start" type="checkbox" checked /> First = start</label>
+          <label class="check"><input id="wf-total" type="checkbox" checked /> Last = total</label>
+          <button class="primary" data-action="waterfall">Insert</button>
+        </div>
+        <p class="small">Rows labelled “Subtotal” or “Total” show the running total.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Actual vs target</b><span class="shape">labels, actual, target</span></div>
+        <div class="row"><span class="small">Columns + target markers + variance bars</span><button class="primary" data-action="avt">Insert</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Pareto (80/20)</b><span class="shape">labels, values</span></div>
+        <div class="row"><span class="small">Sorted bars + cumulative % + 80% line</span><button class="primary" data-action="pareto">Insert</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Gantt / timeline</b><span class="shape">task, start, end</span></div>
+        <div class="row"><span class="small">Bars from start to end date</span><button class="primary" data-action="gantt">Insert</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Mekko (Marimekko)</b><span class="shape">matrix</span></div>
+        <div class="row"><span class="small">Categories across the top, segments down the side</span><button class="primary" data-action="mekko">Insert</button></div>
+      </div>
     </section>
 
-    <input id="search" type="search" placeholder="Search functions (e.g. moving, yoy, outlier)" />
+    <!-- ANNOTATE -->
+    <section id="tab-annotate" class="tab">
+      <p class="hint">Click a column or line chart, then add think-cell-style annotations. Category numbers count from 1 (left to right).</p>
 
-    <details class="codes">
-      <summary>Codes for <code>=ROLLSI.MA</code></summary>
-      <h3>stat (3rd argument)</h3>
-      <table>
-        <tr><td>1</td><td>AVERAGE (default)</td><td>11</td><td>VAR.P</td></tr>
-        <tr><td>2</td><td>COUNT</td><td>12</td><td>MEDIAN</td></tr>
-        <tr><td>3</td><td>COUNTA</td><td>13</td><td>MODE</td></tr>
-        <tr><td>4</td><td>MAX</td><td>14</td><td>LARGE (k)</td></tr>
-        <tr><td>5</td><td>MIN</td><td>15</td><td>SMALL (k)</td></tr>
-        <tr><td>6</td><td>PRODUCT</td><td>16</td><td>PERCENTILE.INC (k)</td></tr>
-        <tr><td>7</td><td>STDEV.S</td><td>17</td><td>QUARTILE.INC (k)</td></tr>
-        <tr><td>8</td><td>STDEV.P</td><td>18</td><td>PERCENTILE.EXC (k)</td></tr>
-        <tr><td>9</td><td>SUM</td><td>19</td><td>QUARTILE.EXC (k)</td></tr>
-        <tr><td>10</td><td>VAR.S</td><td></td><td></td></tr>
-      </table>
-      <p>Names also work: <code>"sum"</code>, <code>"avg"</code>, <code>"first"</code>, <code>"last"</code>,
-        <code>"range"</code>, <code>"geomean"</code>, <code>"harmean"</code>, <code>"avedev"</code>,
-        <code>"skew"</code>, <code>"kurt"</code>, <code>"p90"</code>, <code>"large:2"</code>.</p>
-      <h3>align (4th argument)</h3>
-      <table>
-        <tr><td>0</td><td>Last point: trailing window (default)</td></tr>
-        <tr><td>1</td><td>Mid point: centered window</td></tr>
-        <tr><td>2</td><td>First point: forward-looking window</td></tr>
-        <tr><td>3</td><td>Custom: rowsAbove and rowsBelow</td></tr>
-      </table>
-    </details>
-    <main id="list"></main>
+      <div class="card">
+        <div class="card-head"><b>Difference arrow</b></div>
+        <div class="row">
+          <label>From <input id="diff-from" type="number" min="1" value="1" /></label>
+          <label>To <input id="diff-to" type="number" min="1" value="2" /></label>
+          <select id="diff-mode">
+            <option value="pct">%</option>
+            <option value="abs">abs</option>
+            <option value="both">both</option>
+          </select>
+          <button class="primary" data-action="diff">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>CAGR arrow</b></div>
+        <div class="row">
+          <label>From <input id="cagr-from" type="number" min="1" placeholder="first" /></label>
+          <label>To <input id="cagr-to" type="number" min="1" placeholder="last" /></label>
+          <button class="primary" data-action="cagr">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><b>Totals above stacked bars</b></div>
+        <div class="row"><span class="small">Sum of all visible series per category</span><button class="primary" data-action="totals">Add</button></div>
+      </div>
+
+      <div class="row gap">
+        <button class="secondary" data-action="refresh">↻ Refresh all</button>
+        <button class="secondary" data-action="remove">Remove</button>
+      </div>
+      <p class="small">Annotations are shapes drawn on the sheet. After you resize a chart or change its data, click <b>Refresh all</b>.</p>
+    </section>
+
+    <!-- STYLE -->
+    <section id="tab-style" class="tab">
+      <div class="card">
+        <div class="card-head"><b>Palette</b></div>
+        <select id="palette"></select>
+        <div id="swatches" class="swatches"></div>
+        <input id="custom-palette" type="text" placeholder="Custom: #0B2D4F, #2E6DA4, #E5A823 …" />
+        <p class="small">Saved in this workbook and as your default. Share the hex list with your team for a consistent look.</p>
+      </div>
+      <div class="card">
+        <div class="card-head"><b>Consultant style</b></div>
+        <label class="check"><input id="style-labels" type="checkbox" checked /> Direct data labels on bars (hide value axis)</label>
+        <p class="small">No gridlines or borders, muted axes, K/M number formats, palette colours, legend only when needed.</p>
+        <div class="row gap">
+          <button class="primary" data-action="style-one">Style selected chart</button>
+          <button class="secondary" data-action="style-all">All charts on sheet</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- EXPORT -->
+    <section id="tab-export" class="tab">
+      <div class="card">
+        <div class="row">
+          <select id="export-scope">
+            <option value="selected">Selected chart</option>
+            <option value="sheet">All charts on this sheet</option>
+          </select>
+          <select id="export-size"></select>
+        </div>
+        <button class="primary wide" data-action="export">Create PNG images</button>
+        <p class="small">Slide sizes drop straight into a 16:9 PowerPoint slide. If a download is blocked, use <b>Copy</b> or drag the image into PowerPoint.</p>
+      </div>
+      <div id="gallery"></div>
+    </section>
+
+    <!-- FUNCTIONS -->
+    <section id="tab-functions" class="tab">
+      <input id="search" type="search" placeholder="Search functions (e.g. moving, yoy, spark)" />
+
+      <details class="codes">
+        <summary>Codes for <code>=ROLLSI.MA</code></summary>
+        <h3>stat (3rd argument)</h3>
+        <table>
+          <tr><td>1</td><td>AVERAGE (default)</td><td>11</td><td>VAR.P</td></tr>
+          <tr><td>2</td><td>COUNT</td><td>12</td><td>MEDIAN</td></tr>
+          <tr><td>3</td><td>COUNTA</td><td>13</td><td>MODE</td></tr>
+          <tr><td>4</td><td>MAX</td><td>14</td><td>LARGE (k)</td></tr>
+          <tr><td>5</td><td>MIN</td><td>15</td><td>SMALL (k)</td></tr>
+          <tr><td>6</td><td>PRODUCT</td><td>16</td><td>PERCENTILE.INC (k)</td></tr>
+          <tr><td>7</td><td>STDEV.S</td><td>17</td><td>QUARTILE.INC (k)</td></tr>
+          <tr><td>8</td><td>STDEV.P</td><td>18</td><td>PERCENTILE.EXC (k)</td></tr>
+          <tr><td>9</td><td>SUM</td><td>19</td><td>QUARTILE.EXC (k)</td></tr>
+          <tr><td>10</td><td>VAR.S</td><td></td><td></td></tr>
+        </table>
+        <p>Names also work: <code>"sum"</code>, <code>"avg"</code>, <code>"first"</code>, <code>"last"</code>,
+          <code>"range"</code>, <code>"geomean"</code>, <code>"harmean"</code>, <code>"avedev"</code>,
+          <code>"skew"</code>, <code>"kurt"</code>, <code>"p90"</code>, <code>"large:2"</code>.</p>
+        <h3>align (4th argument)</h3>
+        <table>
+          <tr><td>0</td><td>Last point: trailing window (default)</td></tr>
+          <tr><td>1</td><td>Mid point: centered window</td></tr>
+          <tr><td>2</td><td>First point: forward-looking window</td></tr>
+          <tr><td>3</td><td>Custom: rowsAbove and rowsBelow</td></tr>
+        </table>
+      </details>
+      <main id="list"></main>
+    </section>
 
     <footer>
       Type <code>=ROLLSI.</code> in any cell to see every function.<br />

@@ -11,12 +11,53 @@ class MockCfError extends Error {
     super(message);
   }
 }
-(global as any).CustomFunctions = { Error: MockCfError, ErrorCode: { invalidValue: "#VALUE!" } };
+(global as any).CustomFunctions = {
+  Error: MockCfError,
+  ErrorCode: { invalidValue: "#VALUE!", notAvailable: "#N/A" },
+};
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const fx = require("../../src/functions/functions");
 
 const D = 46023;
+
+const isNA = (v: any) => v instanceof MockCfError && v.code === "#N/A";
+
+describe("Excel chart helpers & in-cell charts", () => {
+  it("SPARK, BAR, ARROW, SHORT", () => {
+    assert.strictEqual(fx.spark([[1], [2]], null, null, null), "▁█");
+    assert.strictEqual(fx.bar(5, 10, null), "█████");
+    assert.strictEqual(fx.arrow(0.1, null, null, null), "▲ +10.0%");
+    assert.strictEqual(fx.short(1234, null), "1.2K");
+  });
+  it("NA turns blanks into #N/A", () => {
+    const out = fx.chartNa([[1], [""], ["x"]]);
+    assert.strictEqual(out[0][0], 1);
+    assert.ok(isNA(out[1][0]));
+    assert.strictEqual(out[2][0], "x");
+  });
+  it("CONTROL spills 4 columns with #N/A gaps", () => {
+    const out = fx.control([[1], [2], [3], [4], [100]], null, 1);
+    assert.strictEqual(out.length, 5);
+    assert.strictEqual(out[0].length, 4);
+    assert.ok(isNA(out[0][3]));
+    assert.strictEqual(out[4][3], 100);
+  });
+  it("PARETO, WATERFALL, VSTARGET shapes", () => {
+    assert.deepStrictEqual(fx.paretoTable([["a"], ["b"]], [[1], [3]]), [
+      ["b", 3, 0.75, 0.8],
+      ["a", 1, 1, 0.8],
+    ]);
+    assert.strictEqual(
+      fx.waterfallTable([["S"], ["x"], ["E"]], [[10], [5], [""]], null, null)[2][6],
+      15
+    );
+    const v = fx.vsTarget([[10], [5]], [[8], [7]]);
+    assert.deepStrictEqual(v[0].slice(0, 3), [10, 8, 2]);
+    assert.ok(isNA(v[0][3]));
+    assert.strictEqual(v[1][3], -2);
+  });
+});
 
 describe("Excel wrappers", () => {
   const five = [[1], [2], [3], [4], [5]];

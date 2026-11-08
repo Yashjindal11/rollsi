@@ -1,6 +1,6 @@
 {
   "name": "rollsi",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Moving averages, rolling statistics, growth, anomaly detection and forecasting as Excel custom functions (=ROLLSI.SMA, =ROLLSI.ROLLDAYS, ...) and as a TypeScript library.",
   "keywords": [
     "excel",

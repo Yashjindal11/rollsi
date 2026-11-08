@@ -5,3 +5,4 @@ export * from "./dates";
 export * from "./growth";
 export * from "./analysis";
 export * from "./forecast";
+export * from "./viz";
