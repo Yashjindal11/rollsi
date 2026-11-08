@@ -6,7 +6,7 @@
 
 <p align="center">
   <b>Moving averages, rolling stats, analyst charts and think-cell-style annotations for Excel.</b><br/>
-  Type <code>=ROLLSI.</code> in any cell, or open the ROLLSI panel. Works in Excel for Windows, Mac and the web.
+  Use the <b>ROLLSI</b> ribbon tab, or type <code>=ROLLSI.</code> in any cell. Works in Excel for Windows, Mac and the web.
 </p>
 
 ```excel
@@ -140,38 +140,42 @@ If you pass `rowsAbove`/`rowsBelow` without an `align`, custom is assumed.
 
 ---
 
-## Charts, annotations, styling & export (task pane)
+## The ROLLSI ribbon tab (think-cell style)
 
-Open **Home → ROLLSI Functions**. Select your data, click a button.
+Everything happens in Excel's ribbon. There's no separate window and no tabs to switch: **select data → click a button**.
 
-### One-click analyst charts (Charts tab)
-| Chart | Select | What you get |
+| Group | Buttons |
+| --- | --- |
+| **Charts** | **Trend ▾** (7 / 14 / 30 / 90-period moving average) · **Control ▾** (±2σ, ±3σ, rolling) · **Waterfall** · **Actual vs Target** · **Pareto** · **Gantt** · **Mekko** |
+| **Annotate** | **Difference ▾** (last vs previous, first vs last, every step) · **CAGR** · **Totals** · **Refresh** · **Remove** |
+| **Format** | **Style** (selected chart, or every chart on the sheet) · **Palette ▾** (ROLLSI, Consulting navy, Mono + accent, Colorblind safe, Custom…) |
+| **Share** | **Export** (PNG at slide sizes) · **Demo** · **Settings & Help** |
+
+If something is missing (for example no data or no chart selected), a small ROLLSI message box appears in Excel. The side panel opens only for **Export** and **Settings & Help**.
+
+### Charts
+| Button | Select | What you get |
 | --- | --- | --- |
-| **Trend + moving average** | `[dates] values` | Line + N-period MA, warm-up rows left as gaps (not zeros) |
-| **Control chart** | `[dates] values` | Value, center, ±kσ bands (whole series or rolling), outliers as red dots |
-| **Waterfall / bridge** | `labels, changes` | Start → steps → total; rows named "Subtotal"/"Total" show running totals; handles zero crossings |
-| **Actual vs target** | `labels, actual, target` | Columns with target markers, plus a green/red variance chart underneath |
-| **Pareto (80/20)** | `labels, values` | Sorted bars, cumulative % on a secondary axis, 80% reference line |
-| **Gantt / timeline** | `task, start, end` | Horizontal bars from start to end date |
-| **Mekko (Marimekko)** | matrix: categories across, segments down | Column width = category size, height = segment share (drawn with shapes) |
+| **Trend** | `[dates] values` | Line + N-period MA, warm-up rows left as gaps (not zeros) |
+| **Control** | `[dates] values` | Value, center, ±kσ bands (whole series or rolling), outliers as red dots |
+| **Waterfall** | `labels, changes` | Start → steps → total; rows named "Subtotal"/"Total" show running totals; handles zero crossings |
+| **Actual vs Target** | `labels, actual, target` | Columns with target markers, plus a green/red variance chart underneath |
+| **Pareto** | `labels, values` | Sorted bars, cumulative % on a secondary axis, 80% reference line |
+| **Gantt** | `task, start, end` | Horizontal bars from start to end date |
+| **Mekko** | matrix: categories across, segments down | Column width = category size, height = segment share (drawn with shapes) |
 
-Charts are **live**: their data comes from formulas (`=ROLLSI.MA`, `=ROLLSI.CONTROL`, `=ROLLSI.WATERFALL`, …) written to a **ROLLSI Data** sheet, so they update when your data changes. Waterfall step labels and Mekko shapes are drawn once; re-insert or click **Refresh all** after big changes.
+Charts are **live**: their data comes from formulas (`=ROLLSI.MA`, `=ROLLSI.CONTROL`, `=ROLLSI.WATERFALL`, …) written to a **ROLLSI Data** sheet, so they update when your data changes. Waterfall step labels and Mekko shapes are drawn once; click the button again, or **Refresh**, after big changes.
 
-### think-cell-style annotations (Annotate tab)
-Click a column or line chart, then add:
-- **Difference arrow** between any two categories (Δ as %, absolute, or both)
-- **CAGR arrow** across a period (defaults to first → last)
-- **Totals** above stacked columns
+### Annotations
+Click a column or line chart, then **Difference**, **CAGR** or **Totals**. Annotations are grouped shapes tagged with the chart name. **Refresh** redraws every annotation (and Mekko) on the sheet after you resize a chart or change data. **Remove** clears them. Choose percent, absolute or both for difference labels under **Settings & Help**.
 
-Annotations are grouped shapes tagged with the chart name. **Refresh all** redraws every annotation (and Mekko) on the sheet after you resize a chart or change data. **Remove** clears them.
-
-### Consultant styling (Style tab)
-One click: no gridlines or borders, muted axes, K/M number formats, palette colours, legend only when needed, optional direct labels (and the value axis hidden). Pick a palette (ROLLSI, Consulting navy, Mono + accent, Colorblind safe) or paste your company hex codes as **Custom**. The choice is saved in the workbook and as your default.
+### Style & palette
+**Style** removes gridlines and borders, mutes the axes, uses K/M number formats, colours series from your palette, shows a legend only when it's needed, and adds direct labels on bars (you can turn labels off in Settings). Paste your company hex codes as a **Custom** palette. The choice is saved in the workbook and as your default.
 
 Series names drive the colours, so you get the same result on any chart: `Increase`/`Over` green, `Decrease`/`Under` red, `Total` grey, `Upper`/`Lower` dashed bands, `Target` marker, names starting with `_` hidden.
 
-### Export (Export tab)
-Turn the selected chart, or all charts on the sheet, into PNGs sized for slides (16:9 full slide, half slide, wide strip, or as shown). Then **Download**, **Copy** (paste into PowerPoint), or drag the image into a slide.
+### Export
+**Export** turns the selected chart, or all charts on the sheet, into PNGs sized for slides (16:9 full slide, half slide, wide strip, or as shown). Then **Copy** and paste into PowerPoint, **Download**, or drag the image into a slide.
 
 ### In-cell charts (formulas)
 | Function | Example | Result |
@@ -205,12 +209,12 @@ A Microsoft 365 admin does this **once**. ROLLSI then loads automatically for ev
 1. Go to <https://admin.microsoft.com> → **Settings → Integrated apps → Upload custom apps**.
 2. App type **Office Add-in** → **Provide link to manifest file** → paste the manifest URL above → **Validate**.
 3. Assign it to **Entire organization**, or to a specific group such as your analytics team → **Deploy**.
-4. It can take up to 24 hours to appear. Users will see a **ROLLSI** group on the **Home** tab, and `=ROLLSI.` autocompletes in every workbook.
+4. It can take up to 24 hours to appear. Users will see a **ROLLSI** tab in the ribbon, and `=ROLLSI.` autocompletes in every workbook.
 
 ### Option B: Each person installs it themselves (no admin needed)
 - **Excel on the web:** Home → Add-ins → More Add-ins → My Add-ins → **Upload My Add-in** → choose `manifest.xml` (download it from the URL above).
 - **Excel for Mac:** download `manifest.xml` into
-  `~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/` (create the `wef` folder if needed), restart Excel, then Home → Add-ins → **ROLLSI**.
+  `~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/` (create the `wef` folder if needed), restart Excel, then Home → Add-ins → **ROLLSI** (the ROLLSI ribbon tab appears).
 - **Excel for Windows:** put `manifest.xml` in a shared network folder, add that folder in File → Options → Trust Center → Trust Center Settings → **Trusted Add-in Catalogs** (tick *Show in Menu*), restart Excel, then Home → Add-ins → **Shared Folder** → ROLLSI.
 
 ### Updates are automatic
@@ -221,7 +225,7 @@ Every push to `main` is tested and redeployed to GitHub Pages by [the workflow](
 ---
 
 ## Try it in 10 seconds
-Click **Home → ROLLSI Functions → Demo sheet**. You get 120 days of sample sales data (with missing days, a spike and a dip), every major function applied next to it, a KPI block with sparklines and arrows, a 14-day forecast, a live trend + moving-average chart and a revenue bridge (waterfall).
+Click **ROLLSI → Demo**. You get 120 days of sample sales data (with missing days, a spike and a dip), every major function applied next to it, a KPI block with sparklines and arrows, a 14-day forecast, a live trend + moving-average chart and a revenue bridge (waterfall).
 
 ## Use the math from code (npm)
 The calculation engine is a dependency-free TypeScript library:
@@ -247,8 +251,10 @@ Project layout:
 ```
 src/core/        pure TypeScript math (published to npm), no Excel dependency
 src/functions/   Excel custom-function wrappers; JSDoc tags generate functions.json
-src/taskpane/    task pane UI; lib/ has chart builders, annotations, styling, export, Mekko
-manifest.xml     add-in manifest (localhost URLs are rewritten to ROLLSI_URL on build)
+src/commands/    ribbon button handlers + in-Excel message box
+src/taskpane/    export/settings panel; lib/ has chart builders, annotations, styling, export, Mekko
+scripts/         icon and manifest generators (edit make-manifest.py to change the ribbon)
+manifest.xml     generated add-in manifest with the ribbon tab (localhost URLs are rewritten to ROLLSI_URL on build)
 ```
 
 ### Adding a function

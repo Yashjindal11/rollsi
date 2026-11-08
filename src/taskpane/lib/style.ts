@@ -159,3 +159,25 @@ export async function applyStyle(
   if (visibleCount > 1) chart.legend.position = Excel.ChartLegendPosition.top;
   await context.sync();
 }
+
+/** Styles the selected chart, or every chart on the active sheet when no chart is selected. */
+export async function styleSelectedOrSheet(
+  context: Excel.RequestContext,
+  palette: string[],
+  labels: boolean
+): Promise<number> {
+  const chart = context.workbook.getActiveChartOrNullObject();
+  await context.sync();
+  let charts: Excel.Chart[];
+  if (chart.isNullObject) {
+    const coll = context.workbook.worksheets.getActiveWorksheet().charts;
+    coll.load("items");
+    await context.sync();
+    charts = coll.items;
+    if (!charts.length) throw new Error("There are no charts on this sheet to style.");
+  } else {
+    charts = [chart];
+  }
+  for (const c of charts) await applyStyle(context, c, palette, { labels });
+  return charts.length;
+}

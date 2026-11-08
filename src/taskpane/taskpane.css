@@ -350,3 +350,31 @@ select {
 #status.ok {
   color: var(--accent);
 }
+
+/* ---------- single-view panel ---------- */
+
+section.card {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 4px;
+}
+
+label.check {
+  margin: 10px 0 2px;
+}
+
+#search {
+  margin: 6px 0 8px;
+}
+
+#export-scope,
+#export-size {
+  flex: 1;
+  min-width: 0;
+}

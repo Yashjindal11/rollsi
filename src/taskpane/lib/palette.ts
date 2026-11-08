@@ -68,3 +68,30 @@ export function textColorOn(hex: string): string {
   const b = n & 255;
   return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#262626" : "#FFFFFF";
 }
+
+/** Small preferences shared by the ribbon commands and the panel (workbook settings + local default). */
+export function getPref(key: string, fallback: string): string {
+  const s = settings();
+  return (s?.get(`rollsi.${key}`) as string) ?? localStorage.getItem(`rollsi.${key}`) ?? fallback;
+}
+
+export function setPref(key: string, value: string): Promise<void> {
+  localStorage.setItem(`rollsi.${key}`, value);
+  const s = settings();
+  if (!s) return Promise.resolve();
+  s.set(`rollsi.${key}`, value);
+  return new Promise((resolve) => s.saveAsync(() => resolve()));
+}
+
+/** Ribbon commands run in their own runtime, so re-read settings saved by the panel first. */
+export function refreshPrefs(): Promise<void> {
+  return new Promise((resolve) => {
+    const s = settings();
+    if (!s || typeof s.refreshAsync !== "function") return resolve();
+    try {
+      s.refreshAsync(() => resolve());
+    } catch {
+      resolve();
+    }
+  });
+}

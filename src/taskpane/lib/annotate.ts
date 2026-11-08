@@ -216,6 +216,23 @@ export async function addDifferenceArrow(
   await context.sync();
 }
 
+export type DiffPick = "last" | "firstLast" | "all";
+
+/** Difference arrows chosen by position: last vs previous, first vs last, or every consecutive step. */
+export async function addDifferences(
+  context: Excel.RequestContext,
+  pick: DiffPick,
+  mode: DiffMode
+) {
+  const g = await geometry(context, await activeChart(context));
+  if (g.n < 2) throw new Error("The chart needs at least two categories.");
+  if (pick === "last") await drawDiff(context, g, g.n - 2, g.n - 1, mode);
+  if (pick === "firstLast") await drawDiff(context, g, 0, g.n - 1, mode);
+  if (pick === "all") {
+    for (let i = 0; i < g.n - 1; i++) await drawDiff(context, g, i, i + 1, mode);
+  }
+}
+
 export async function addCagrArrow(
   context: Excel.RequestContext,
   from1?: number | null,
