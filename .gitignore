@@ -1,0 +1,7 @@
+# Build output
+dist/
+lib/
+
+# Node modules folder
+node_modules/
+.DS_Store

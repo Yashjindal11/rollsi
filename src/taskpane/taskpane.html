@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ROLLSI</title>
+    <script type="text/javascript" src="https://officeapis.public.onecdn.static.microsoft/1/office.js"></script>
+    <link href="taskpane.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <img src="../../assets/icon-32.png" alt="" width="24" height="24" />
+        <h1>ROLLSI</h1>
+      </div>
+      <p class="tagline">Moving averages, rolling stats, growth &amp; forecasting for Excel.</p>
+    </header>
+
+    <section class="actions">
+      <button id="demo" class="primary">Create demo sheet</button>
+      <p id="status" role="status"></p>
+    </section>
+
+    <input id="search" type="search" placeholder="Search functions (e.g. moving, yoy, outlier)" />
+    <main id="list"></main>
+
+    <footer>
+      Type <code>=ROLLSI.</code> in any cell to see every function.<br />
+      Open source (MIT) &middot; <a href="https://github.com/Yashjindal11/rollsi" target="_blank">GitHub</a>
+    </footer>
+  </body>
+</html>
