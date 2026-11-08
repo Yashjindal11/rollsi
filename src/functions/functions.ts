@@ -36,6 +36,52 @@ function scalar(value: core.Num): any {
   return value === null ? "" : value;
 }
 
+// ---------------------------------------------------------------- The all-in-one moving window
+
+/**
+ * Moving window with any statistic and any alignment. Spills a full column.
+ * Example: =ROLLSI.MA(B2:B100, 7) is a trailing 7-row average; =ROLLSI.MA(B2:B100, 7, 9, 1) is a centered 7-row sum.
+ * @customfunction MA
+ * @param values Column (or row) of numbers.
+ * @param [window] Rows in the window, e.g. 7 or 15. Leave blank when align is custom.
+ * @param [stat] Excel AGGREGATE code or name. 1 AVERAGE (default), 2 COUNT, 3 COUNTA, 4 MAX, 5 MIN, 6 PRODUCT, 7 STDEV.S, 8 STDEV.P, 9 SUM, 10 VAR.S, 11 VAR.P, 12 MEDIAN, 13 MODE, 14 LARGE, 15 SMALL, 16 PERCENTILE.INC, 17 QUARTILE.INC, 18 PERCENTILE.EXC, 19 QUARTILE.EXC. Also "first", "last", "range", "geomean", "harmean", "avedev", "skew", "kurt", "p90", "large:2".
+ * @param [align] Where the current row sits in the window. 0 last point (trailing, default), 1 mid point (centered), 2 first point (forward-looking), 3 custom (uses rowsAbove and rowsBelow).
+ * @param [rowsAbove] Custom: number of rows above (before) the current row to include.
+ * @param [rowsBelow] Custom: number of rows below (after) the current row to include.
+ * @param [k] Parameter for LARGE/SMALL (k-th value), PERCENTILE (0 to 1) or QUARTILE (0 to 4).
+ * @param [partial] TRUE to compute rows near the top/bottom edge from the rows available. Default FALSE (blank).
+ * @returns The moving statistic for every row.
+ */
+export function ma(
+  values: any[][],
+  window?: number,
+  stat?: any,
+  align?: any,
+  rowsAbove?: number,
+  rowsBelow?: number,
+  k?: number,
+  partial?: boolean
+): any[][] {
+  return run(() => {
+    const series = core.toSeries(values);
+    const spec = core.parseStat(stat, k);
+    const { above, below } = core.resolveWindow(
+      window,
+      core.parseAlign(align),
+      rowsAbove,
+      rowsBelow
+    );
+    const out = core.moving(series.values, {
+      above,
+      below,
+      stat: spec,
+      partial: partial ?? false,
+      present: series.present,
+    });
+    return core.toRange(out, series.orientation);
+  });
+}
+
 // ---------------------------------------------------------------- Moving averages
 
 /**
@@ -80,10 +126,10 @@ export function wma(values: any[][], window: number, partial?: boolean): any[][]
  * @customfunction LAST
  * @param values Column (or row) of numbers. Can include empty rows at the bottom.
  * @param n How many of the most recent numbers to use.
- * @param [stat] avg (default), sum, min, max, median, stdev, var, count, product.
+ * @param [stat] Code 1-19 (same as Excel AGGREGATE: 1 AVERAGE, 9 SUM, 4 MAX, 5 MIN, 12 MEDIAN...) or a name: avg (default), sum, min, max, median, stdev, var, count, first, last, range, "p90", "large:2"...
  * @returns The statistic over the last N numbers.
  */
-export function last(values: any[][], n: number, stat?: string): any {
+export function last(values: any[][], n: number, stat?: any): any {
   return run(() => scalar(core.last(core.toSeries(values).values, n, core.parseStat(stat))));
 }
 
@@ -94,17 +140,28 @@ export function last(values: any[][], n: number, stat?: string): any {
  * @customfunction ROLLING
  * @param values Column (or row) of numbers.
  * @param window Number of rows in the window.
- * @param [stat] avg (default), sum, min, max, median, stdev, var, count, product.
+ * @param [stat] Code 1-19 (same as Excel AGGREGATE: 1 AVERAGE, 9 SUM, 4 MAX, 5 MIN, 12 MEDIAN...) or a name: avg (default), sum, min, max, median, stdev, var, count, first, last, range, "p90", "large:2"...
  * @param [partial] TRUE to also compute the first N-1 rows. Default FALSE.
  * @returns Rolling statistic for every row.
  */
 export function rollingStat(
   values: any[][],
   window: number,
-  stat?: string,
+  stat?: any,
   partial?: boolean
 ): any[][] {
-  return spill(values, (v) => core.rolling(v, window, core.parseStat(stat), partial ?? false));
+  return run(() => {
+    const series = core.toSeries(values);
+    core.requirePositiveInt(window, "window");
+    const out = core.moving(series.values, {
+      above: window - 1,
+      below: 0,
+      stat: core.parseStat(stat),
+      partial: partial ?? false,
+      present: series.present,
+    });
+    return core.toRange(out, series.orientation);
+  });
 }
 
 /**
@@ -173,7 +230,7 @@ export function rollStdev(values: any[][], window: number, partial?: boolean): a
  * @param dates Column of dates (same size as values). Does not need to be sorted.
  * @param values Column of numbers.
  * @param days Window length in calendar days, e.g. 7.
- * @param [stat] avg (default), sum, min, max, median, stdev, var, count, product, or perday (sum / days, so missing days count as 0).
+ * @param [stat] Code 1-19 (same as Excel AGGREGATE: 1 AVERAGE, 9 SUM, 4 MAX, 5 MIN, 12 MEDIAN...) or a name: avg (default), sum, min, max, median, stdev, var, count, first, last, range, "p90", "large:2"... Or perday (sum / days, so missing days count as 0).
  * @param [partial] TRUE to also compute rows with less than N days of history. Default FALSE.
  * @returns Rolling statistic for every row.
  */
@@ -181,7 +238,7 @@ export function rollDays(
   dates: any[][],
   values: any[][],
   days: number,
-  stat?: string,
+  stat?: any,
   partial?: boolean
 ): any[][] {
   return spillPair(dates, values, (d, v) =>

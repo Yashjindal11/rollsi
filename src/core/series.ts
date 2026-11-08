@@ -10,15 +10,25 @@ export function toNum(v: unknown): Num {
 }
 
 /** Flattens a single-column or single-row Excel range into a 1-D series and remembers its shape. */
-export function toSeries(range: unknown[][]): { values: Num[]; orientation: Orientation } {
-  if (!Array.isArray(range) || range.length === 0) return { values: [], orientation: "column" };
+export function toSeries(range: unknown[][]): {
+  values: Num[];
+  orientation: Orientation;
+  present: boolean[];
+} {
+  if (!Array.isArray(range) || range.length === 0) {
+    return { values: [], orientation: "column", present: [] };
+  }
   const rows = range.length;
   const cols = range[0].length;
   if (rows > 1 && cols > 1) {
     throw new RollsiError("Pass a single column or a single row, not a 2-D block.");
   }
-  if (rows === 1 && cols > 1) return { values: range[0].map(toNum), orientation: "row" };
-  return { values: range.map((r) => toNum(r[0])), orientation: "column" };
+  const cells = rows === 1 && cols > 1 ? range[0] : range.map((r) => r[0]);
+  return {
+    values: cells.map(toNum),
+    orientation: rows === 1 && cols > 1 ? "row" : "column",
+    present: cells.map((c) => c !== "" && c !== null && c !== undefined),
+  };
 }
 
 /** Converts a 1-D result back into a spill array with the original orientation. Nulls become blanks. */

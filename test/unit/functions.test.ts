@@ -19,6 +19,61 @@ const fx = require("../../src/functions/functions");
 const D = 46023;
 
 describe("Excel wrappers", () => {
+  const five = [[1], [2], [3], [4], [5]];
+
+  it("MA: trailing average by default", () => {
+    assert.deepStrictEqual(fx.ma(five, 3, null, null, null, null, null, null), [
+      [""],
+      [""],
+      [2],
+      [3],
+      [4],
+    ]);
+  });
+
+  it("MA: stat code + alignment code", () => {
+    // 9 = SUM, 1 = mid point
+    assert.deepStrictEqual(fx.ma(five, 3, 9, 1, null, null, null, null), [
+      [""],
+      [6],
+      [9],
+      [12],
+      [""],
+    ]);
+    // custom: 1 row above, 1 row below, window left blank
+    assert.deepStrictEqual(fx.ma(five, null, "sum", 3, 1, 1, null, null), [
+      [""],
+      [6],
+      [9],
+      [12],
+      [""],
+    ]);
+    // 14 = LARGE with k = 2 over a trailing 3-row window
+    assert.deepStrictEqual(fx.ma(five, 3, 14, 0, null, null, 2, null), [[""], [""], [2], [3], [4]]);
+  });
+
+  it("MA: COUNTA counts text cells, partial fills the edges", () => {
+    assert.deepStrictEqual(fx.ma([[1], ["x"], [""], [4]], 2, 3, null, null, null, null, null), [
+      [""],
+      [2],
+      [1],
+      [1],
+    ]);
+    assert.deepStrictEqual(fx.ma(five, 3, "avg", "mid", null, null, null, true), [
+      [1.5],
+      [2],
+      [3],
+      [4],
+      [4.5],
+    ]);
+  });
+
+  it("MA: helpful errors", () => {
+    assert.throws(() => fx.ma(five, null, null, null, null, null, null, null), /window/);
+    assert.throws(() => fx.ma(five, 3, 99, null, null, null, null, null), /Unknown stat code/);
+    assert.throws(() => fx.ma(five, 3, 14, null, null, null, null, null), /needs k/);
+  });
+
   it("spill a column the same shape as the input, with blanks for warm-up rows", () => {
     // Excel passes empty cells as "" and omitted optional args as null.
     assert.deepStrictEqual(fx.sma([[1], [2], [""], [4]], 2, null), [[""], [1.5], [2], [4]]);
@@ -73,6 +128,6 @@ describe("Excel wrappers", () => {
         ),
       MockCfError
     );
-    assert.throws(() => fx.rollingStat([[1], [2]], 2, "mode", null), /Unknown stat/);
+    assert.throws(() => fx.rollingStat([[1], [2]], 2, "bogus", null), /Unknown stat/);
   });
 });

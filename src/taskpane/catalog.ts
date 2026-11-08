@@ -8,6 +8,21 @@ export interface FunctionDoc {
 
 export const CATALOG: FunctionDoc[] = [
   {
+    group: "All-in-one",
+    name: "MA",
+    syntax: "MA(values, [window], [stat], [align], [rowsAbove], [rowsBelow], [k], [partial])",
+    summary:
+      "Any stat over any window. stat: code 1-19 (Excel AGGREGATE) or a name. align: 0 last point, 1 mid point, 2 first point, 3 custom rows above/below.",
+    example: "=ROLLSI.MA(B2:B100, 7, 9, 1)  → centered 7-row SUM",
+  },
+  {
+    group: "All-in-one",
+    name: "MA (custom)",
+    syntax: "MA(values, , stat, 3, rowsAbove, rowsBelow)",
+    summary: "Custom window: e.g. 3 rows above and 1 row below each row.",
+    example: '=ROLLSI.MA(B2:B100, , "avg", 3, 3, 1)',
+  },
+  {
     group: "Moving averages",
     name: "SMA",
     syntax: "SMA(values, window, [partial])",
@@ -39,7 +54,8 @@ export const CATALOG: FunctionDoc[] = [
     group: "Rolling",
     name: "ROLLING",
     syntax: "ROLLING(values, window, [stat], [partial])",
-    summary: "Any rolling stat: avg, sum, min, max, median, stdev, var, count, product.",
+    summary:
+      "Trailing window with any stat: code 1-19 (Excel AGGREGATE) or a name (avg, sum, median, p90...).",
     example: '=ROLLSI.ROLLING(B2:B100, 30, "median")',
   },
   {

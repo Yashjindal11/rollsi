@@ -22,6 +22,33 @@
     </section>
 
     <input id="search" type="search" placeholder="Search functions (e.g. moving, yoy, outlier)" />
+
+    <details class="codes">
+      <summary>Codes for <code>=ROLLSI.MA</code></summary>
+      <h3>stat (3rd argument)</h3>
+      <table>
+        <tr><td>1</td><td>AVERAGE (default)</td><td>11</td><td>VAR.P</td></tr>
+        <tr><td>2</td><td>COUNT</td><td>12</td><td>MEDIAN</td></tr>
+        <tr><td>3</td><td>COUNTA</td><td>13</td><td>MODE</td></tr>
+        <tr><td>4</td><td>MAX</td><td>14</td><td>LARGE (k)</td></tr>
+        <tr><td>5</td><td>MIN</td><td>15</td><td>SMALL (k)</td></tr>
+        <tr><td>6</td><td>PRODUCT</td><td>16</td><td>PERCENTILE.INC (k)</td></tr>
+        <tr><td>7</td><td>STDEV.S</td><td>17</td><td>QUARTILE.INC (k)</td></tr>
+        <tr><td>8</td><td>STDEV.P</td><td>18</td><td>PERCENTILE.EXC (k)</td></tr>
+        <tr><td>9</td><td>SUM</td><td>19</td><td>QUARTILE.EXC (k)</td></tr>
+        <tr><td>10</td><td>VAR.S</td><td></td><td></td></tr>
+      </table>
+      <p>Names also work: <code>"sum"</code>, <code>"avg"</code>, <code>"first"</code>, <code>"last"</code>,
+        <code>"range"</code>, <code>"geomean"</code>, <code>"harmean"</code>, <code>"avedev"</code>,
+        <code>"skew"</code>, <code>"kurt"</code>, <code>"p90"</code>, <code>"large:2"</code>.</p>
+      <h3>align (4th argument)</h3>
+      <table>
+        <tr><td>0</td><td>Last point: trailing window (default)</td></tr>
+        <tr><td>1</td><td>Mid point: centered window</td></tr>
+        <tr><td>2</td><td>First point: forward-looking window</td></tr>
+        <tr><td>3</td><td>Custom: rowsAbove and rowsBelow</td></tr>
+      </table>
+    </details>
     <main id="list"></main>
 
     <footer>

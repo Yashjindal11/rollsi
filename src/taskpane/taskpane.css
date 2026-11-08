@@ -115,3 +115,42 @@ footer {
   color: var(--muted);
   font-size: 12px;
 }
+
+details.codes {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+}
+
+details.codes summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent-dark);
+}
+
+details.codes h3 {
+  margin: 10px 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+details.codes table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+details.codes td {
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+details.codes td:nth-child(odd) {
+  font-family: Consolas, Menlo, monospace;
+  font-weight: 600;
+  color: var(--accent-dark);
+  width: 24px;
+}

@@ -79,10 +79,10 @@ async function createDemo() {
       const A = `A2:A${last}`;
 
       const columns: [string, string, string][] = [
-        ["7-row SMA", `=ROLLSI.SMA(${B},7)`, "#,##0"],
-        ["14-row SMA", `=ROLLSI.SMA(${B},14)`, "#,##0"],
-        ["7-row EMA", `=ROLLSI.EMA(${B},7)`, "#,##0"],
-        ["7-day sum (calendar)", `=ROLLSI.ROLLDAYS(${A},${B},7,"sum")`, "#,##0"],
+        ["7-row avg (last point)", `=ROLLSI.MA(${B},7)`, "#,##0"],
+        ["7-row avg (mid point)", `=ROLLSI.MA(${B},7,1,1)`, "#,##0"],
+        ["7-row SUM (code 9)", `=ROLLSI.MA(${B},7,9)`, "#,##0"],
+        ["MAX of 3 above + 3 below", `=ROLLSI.MA(${B},,4,3,3,3)`, "#,##0"],
         ["7-day avg/day (calendar)", `=ROLLSI.ROLLDAYS(${A},${B},7,"perday")`, "#,##0"],
         ["WoW %", `=ROLLSI.PERIODCHANGE(${A},${B},"W")`, "0.0%"],
         ["Anomaly score (14)", `=ROLLSI.ROLLZSCORE(${B},14)`, "0.00"],
@@ -130,7 +130,7 @@ async function createDemo() {
         sheet.getRange(`A1:D${last}`),
         Excel.ChartSeriesBy.columns
       );
-      chart.title.text = "Daily sales with 7- and 14-row moving averages";
+      chart.title.text = "Daily sales: trailing vs centered 7-row moving average";
       chart.legend.position = Excel.ChartLegendPosition.bottom;
       chart.setPosition("O2", "X22");
 

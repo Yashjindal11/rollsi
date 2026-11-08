@@ -10,7 +10,8 @@
 </p>
 
 ```excel
-=ROLLSI.SMA(B2:B366, 7)                       → 7-day moving average (spills the whole column)
+=ROLLSI.MA(B2:B366, 7)                        → 7-day moving average (spills the whole column)
+=ROLLSI.MA(B2:B366, 15, 9, 1)                 → 15-row SUM (code 9), centered on each row (align 1)
 =ROLLSI.LAST(B2:B1000, 7)                     → average of the last 7 data points (one KPI number)
 =ROLLSI.ROLLDAYS(A2:A366, B2:B366, 7, "sum")  → trailing 7 *calendar* days, even with missing days
 =ROLLSI.PERIODCHANGE(A2:A366, B2:B366, "YoY") → year-over-year %, matched by date
@@ -39,20 +40,65 @@ Excel can do a 7-day average with `=AVERAGE(B2:B8)` dragged down, but analysts c
 All `values` arguments accept a single column or a single row; results spill in the same direction.
 Blank cells and text are ignored. Optional arguments are in `[brackets]`.
 
+### ⭐ `MA`: one function for any moving window
+
+```excel
+=ROLLSI.MA(values, [window], [stat], [align], [rowsAbove], [rowsBelow], [k], [partial])
+```
+
+| Example | Meaning |
+| --- | --- |
+| `=ROLLSI.MA(B2:B100, 7)` | 7-row moving **average**, trailing (current row = last point) |
+| `=ROLLSI.MA(B2:B100, 15, 9)` | 15-row moving **SUM** (code 9) |
+| `=ROLLSI.MA(B2:B100, 7, 1, 1)` | 7-row average, **centered** (current row = mid point) |
+| `=ROLLSI.MA(B2:B100, 7, 4, 2)` | 7-row **MAX**, forward-looking (current row = first point) |
+| `=ROLLSI.MA(B2:B100, , "avg", 3, 3, 1)` | **Custom**: average of 3 rows above + current + 1 row below |
+| `=ROLLSI.MA(B2:B100, 30, 16, 0, , , 0.9)` | Rolling 90th percentile (code 16, k = 0.9) |
+| `=ROLLSI.MA(B2:B100, 30, "p90")` | Same thing, by name |
+
+**`stat`**: the same codes as Excel's `AGGREGATE`, or a name:
+
+| Code | Stat | Code | Stat |
+| --- | --- | --- | --- |
+| 1 (or blank/0) | AVERAGE | 11 | VAR.P |
+| 2 | COUNT (numbers) | 12 | MEDIAN |
+| 3 | COUNTA (non-empty) | 13 | MODE.SNGL |
+| 4 | MAX | 14 | LARGE (k) |
+| 5 | MIN | 15 | SMALL (k) |
+| 6 | PRODUCT | 16 | PERCENTILE.INC (k = 0..1) |
+| 7 | STDEV.S | 17 | QUARTILE.INC (k = 0..4) |
+| 8 | STDEV.P | 18 | PERCENTILE.EXC (k) |
+| 9 | SUM | 19 | QUARTILE.EXC (k = 1..3) |
+| 10 | VAR.S | | |
+
+Extra stats by name: `"first"`, `"last"`, `"range"` (max − min), `"geomean"`, `"harmean"`, `"avedev"`, `"skew"`, `"kurt"`.
+Stats that need `k` can embed it: `"large:2"`, `"percentile:0.9"`, `"p90"`.
+
+**`align`**: where the current row sits in its window:
+
+| Code | Name | Window for `window = 7` |
+| --- | --- | --- |
+| 0 (default) | `"last"`: last point (trailing) | 6 rows above + current |
+| 1 | `"mid"`: mid point (centered) | 3 above + current + 3 below (even windows put the extra row above) |
+| 2 | `"first"`: first point (forward-looking) | current + 6 rows below |
+| 3 | `"custom"` | `rowsAbove` above + current + `rowsBelow` below (`window` is ignored) |
+
+If you pass `rowsAbove`/`rowsBelow` without an `align`, custom is assumed.
+
 ### Moving averages
 | Function | What it does |
 | --- | --- |
 | `SMA(values, window, [partial])` | Simple moving average over the last *window* rows |
 | `EMA(values, span, [partial], [alpha])` | Exponential moving average, `alpha = 2/(span+1)`, same as pandas `ewm(adjust=False)` |
 | `WMA(values, window, [partial])` | Linearly weighted moving average (newest row weighs most) |
-| `LAST(values, n, [stat])` | One value from the last *n* numbers: the latest 7-point average, sum, max… |
+| `LAST(values, n, [stat])` | One value from the last *n* numbers: the latest 7-point average, sum, max… (`stat` as in `MA`) |
 
 ### Rolling statistics
 | Function | What it does |
 | --- | --- |
-| `ROLLING(values, window, [stat], [partial])` | Any rolling stat: `avg` (default), `sum`, `min`, `max`, `median`, `stdev`, `var`, `count`, `product` |
+| `ROLLING(values, window, [stat], [partial])` | Trailing window with any `stat` (same codes/names as `MA`) |
 | `ROLLSUM` / `ROLLMIN` / `ROLLMAX` / `ROLLMEDIAN` / `ROLLSTDEV` `(values, window, [partial])` | Shortcuts for the common ones |
-| `ROLLDAYS(dates, values, days, [stat], [partial])` | **Date-aware** window: the last *days* calendar days. Handles gaps, unsorted data and many rows per day. `stat = "perday"` gives sum ÷ days (missing days count as 0) |
+| `ROLLDAYS(dates, values, days, [stat], [partial])` | **Date-aware** window: the last *days* calendar days. Handles gaps, unsorted data and many rows per day. `stat` as in `MA`, plus `"perday"` gives sum ÷ days (missing days count as 0) |
 
 ### Cumulative
 | Function | What it does |
@@ -86,7 +132,7 @@ Blank cells and text are ignored. Optional arguments are in `[brackets]`.
 | `FORECAST(values, horizon, [method], [alpha], [beta])` | Next *horizon* periods: `holt` (default, level + trend), `linear`, `ses` |
 
 ### Behaviour notes
-- **Warm-up rows**: rolling functions leave the first `window-1` rows blank. Pass `partial = TRUE` to compute them from the rows available.
+- **Edge rows**: rows whose window runs past the top (or, for mid/first/custom alignment, the bottom) of the data are left blank. Pass `partial = TRUE` to compute them from the rows available.
 - **Blanks inside a window** are skipped; the stat uses the numbers that are present.
 - **Standard deviation / variance** are sample statistics (same as `STDEV.S` / `VAR.S`).
 - **Month arithmetic** is month-end aware: for MoM, Feb 28 is compared with Jan 31.

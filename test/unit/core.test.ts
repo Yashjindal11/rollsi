@@ -22,7 +22,11 @@ const D = 46023; // 2026-01-01 as an Excel serial date
 describe("series", () => {
   it("reads a column and keeps orientation", () => {
     const s = r.toSeries([[1], [""], ["text"], [true], [2]]);
-    assert.deepStrictEqual(s, { values: [1, null, null, null, 2], orientation: "column" });
+    assert.deepStrictEqual(s, {
+      values: [1, null, null, null, 2],
+      orientation: "column",
+      present: [true, false, true, true, true],
+    });
   });
   it("reads a row", () => {
     assert.deepStrictEqual(r.toSeries([[1, 2, 3]]).orientation, "row");
@@ -75,6 +79,112 @@ describe("moving averages", () => {
   });
 });
 
+describe("MA: moving window with alignment", () => {
+  const v = [1, 2, 3, 4, 5, 6, 7];
+  const ma = (
+    window: number | null,
+    stat: unknown,
+    align: unknown,
+    above?: number,
+    below?: number,
+    partial = false
+  ) =>
+    r.moving(v, {
+      ...r.resolveWindow(window, r.parseAlign(align), above, below),
+      stat: r.parseStat(stat),
+      partial,
+    });
+
+  it("0 / last = trailing (default)", () => {
+    close(ma(3, null, null), [null, null, 2, 3, 4, 5, 6]);
+    close(ma(3, 1, 0), [null, null, 2, 3, 4, 5, 6]);
+  });
+  it("1 / mid = centered", () => {
+    close(ma(3, "avg", 1), [null, 2, 3, 4, 5, 6, null]);
+    close(ma(4, "avg", "mid"), [null, null, 2.5, 3.5, 4.5, 5.5, null]);
+    close(ma(3, "avg", "center", undefined, undefined, true), [1.5, 2, 3, 4, 5, 6, 6.5]);
+  });
+  it("2 / first = forward-looking", () => {
+    close(ma(3, "avg", 2), [2, 3, 4, 5, 6, null, null]);
+  });
+  it("3 / custom = explicit rows above and below", () => {
+    close(ma(null, 9, 3, 1, 2), [null, 10, 14, 18, 22, null, null]);
+    close(ma(null, "max", null, 2), [null, null, 3, 4, 5, 6, 7]); // custom inferred
+    close(ma(null, "sum", "custom", 0, 0), [1, 2, 3, 4, 5, 6, 7]);
+  });
+  it("validates alignment input", () => {
+    assert.throws(() => r.parseAlign("sideways"), r.RollsiError);
+    assert.throws(() => r.resolveWindow(null, "custom"), r.RollsiError);
+    assert.throws(() => r.resolveWindow(null, "last"), r.RollsiError);
+    assert.throws(() => r.resolveWindow(null, "custom", -1, 0), r.RollsiError);
+  });
+  it("COUNTA counts non-empty cells including text", () => {
+    const out = r.moving([1, null, null, 4], {
+      above: 1,
+      below: 0,
+      stat: "counta",
+      present: [true, true, false, true],
+    });
+    close(out, [null, 2, 1, 1]);
+  });
+});
+
+describe("stat codes (Excel AGGREGATE 1-19 + extras)", () => {
+  const ten = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+  const docs = [3, 4, 5, 2, 3, 4, 5, 6, 4, 7]; // sample data from Excel's SKEW/KURT docs
+  const agg = (xs: (number | null)[], stat: unknown, k?: number) =>
+    r.aggregate(xs, r.parseStat(stat, k));
+  const near = (a: number | null, e: number) =>
+    assert.ok(a !== null && Math.abs(a - e) < 1e-6, `${a} != ${e}`);
+
+  it("maps every code", () => {
+    const kFor: Record<number, number> = { 14: 1, 15: 1, 16: 0.5, 17: 1, 18: 0.5, 19: 1 };
+    const names = Array.from({ length: 19 }, (_, i) => r.parseStat(i + 1, kFor[i + 1]).stat);
+    assert.deepStrictEqual(names, r.AGGREGATE_CODES);
+    assert.strictEqual(r.parseStat(0).stat, "mean");
+    assert.strictEqual(r.parseStat("9").stat, "sum");
+    assert.throws(() => r.parseStat(20), r.RollsiError);
+  });
+  it("population vs sample stdev / var", () => {
+    const v = [2, 4, 4, 4, 5, 5, 7, 9];
+    near(agg(v, 8), 2);
+    near(agg(v, 11), 4);
+    near(agg(v, 7), 2.138089935);
+    near(agg(v, 10), 32 / 7);
+  });
+  it("mode matches MODE.SNGL", () => {
+    assert.strictEqual(agg([1, 3, 3, 2, 2], 13), 3);
+    assert.strictEqual(agg([1, 2, 3], "mode"), null);
+  });
+  it("large / small / percentile / quartile with k", () => {
+    assert.strictEqual(agg([5, 1, 9, 3], 14, 2), 5);
+    assert.strictEqual(agg([5, 1, 9, 3], "small:2"), 3);
+    assert.strictEqual(agg([5, 1, 9, 3], "LARGE(5)"), null);
+    near(agg(ten, 16, 0.9), 9.1);
+    near(agg(ten, "p90"), 9.1);
+    near(agg(ten, 17, 1), 3.25);
+    near(agg(ten, 18, 0.25), 2.75);
+    near(agg(ten, "quartile.exc:1"), 2.75);
+    assert.strictEqual(agg(ten, 18, 0.05), null);
+  });
+  it("requires valid k", () => {
+    assert.throws(() => r.parseStat("large"), /needs k/);
+    assert.throws(() => r.parseStat(16, 1.5), r.RollsiError);
+    assert.throws(() => r.parseStat(17, 5), r.RollsiError);
+  });
+  it("extras: first, last, range, geomean, harmean, avedev, skew, kurt", () => {
+    assert.strictEqual(agg([null, 2, 3, null], "first"), 2);
+    assert.strictEqual(agg([null, 2, 3, null], "last"), 3);
+    assert.strictEqual(agg([3, 9, 1], "range"), 8);
+    near(agg([1, 4], "geomean"), 2);
+    near(agg([1, 4], "harmean"), 1.6);
+    assert.strictEqual(agg([1, -4], "geomean"), null);
+    near(agg([1, 2, 3, 4], "avedev"), 1);
+    near(agg(docs, "skew"), 0.359543);
+    near(agg(docs, "kurt"), -0.151799637);
+  });
+});
+
 describe("rolling stats", () => {
   const v = [2, 4, 4, 4, 5, 5, 7, 9];
   it("sum, min, max, median, count", () => {
@@ -89,10 +199,10 @@ describe("rolling stats", () => {
     assert.ok(Math.abs((s[7] as number) - 2.138089935299395) < 1e-12);
   });
   it("parses stat aliases", () => {
-    assert.strictEqual(r.parseStat("AVG"), "mean");
-    assert.strictEqual(r.parseStat(undefined), "mean");
-    assert.strictEqual(r.parseStat("std"), "stdev");
-    assert.throws(() => r.parseStat("mode"), r.RollsiError);
+    assert.strictEqual(r.parseStat("AVG").stat, "mean");
+    assert.strictEqual(r.parseStat(undefined).stat, "mean");
+    assert.strictEqual(r.parseStat("std").stat, "stdev");
+    assert.throws(() => r.parseStat("bogus"), r.RollsiError);
   });
   it("cumulative", () => {
     close(r.cumulative([1, null, 3], "sum"), [1, null, 4]);

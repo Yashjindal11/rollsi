@@ -1,6 +1,6 @@
 import type { Num } from "./series";
 import { RollsiError } from "./series";
-import type { Stat } from "./stats";
+import type { Stat, StatSpec } from "./stats";
 import { aggregate, parseStat } from "./stats";
 
 const MS_PER_DAY = 86400000;
@@ -118,14 +118,14 @@ export function periodChange(
   });
 }
 
-export type DayStat = Stat | "perday";
+export type DayStat = Stat | StatSpec | "perday";
 
-export function parseDayStat(input: unknown): DayStat {
+export function parseDayStat(input: unknown, k?: number | null): DayStat {
   const key = String(input ?? "")
     .trim()
     .toLowerCase();
   if (key === "perday" || key === "daily" || key === "per_day") return "perday";
-  return parseStat(input);
+  return parseStat(input, k);
 }
 
 /**
