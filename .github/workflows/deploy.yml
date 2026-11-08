@@ -27,9 +27,13 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run build
-        env:
-          ROLLSI_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+      - name: Build for GitHub Pages
+        run: |
+          owner="${{ github.repository_owner }}"
+          export ROLLSI_URL="https://${owner,,}.github.io/${{ github.event.repository.name }}/"
+          echo "Building for $ROLLSI_URL"
+          npm run build
+      - run: npx office-addin-manifest validate dist/manifest.xml
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
